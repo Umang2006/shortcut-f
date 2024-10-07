@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shortcut Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2c2c2c;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        .form-container {
+            margin-bottom: 20px;
+        }
+
+        input {
+            padding: 10px;
+            margin: 5px;
+            width: calc(33% - 30px);
+            border: none;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .shortcuts-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .shortcut {
+            background-color: #3e3e3e;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px;
+            width: 150px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .shortcut img {
+            width: 50px;
+            height: 50px;
+        }
+
+        .shortcut:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Shortcut Manager</h1>
+        <div class="form-container">
+            <input type="text" id="shortcut-name" placeholder="Shortcut Name" required>
+            <input type="url" id="shortcut-url" placeholder="Shortcut URL" required>
+            <input type="url" id="shortcut-logo" placeholder="Shortcut Logo URL" required>
+            <button id="add-shortcut">Add Shortcut</button>
+        </div>
+        <div class="shortcuts-container" id="shortcuts-container">
+            <!-- Shortcuts will be added here -->
+        </div>
+    </div>
+    <script>
+        document.getElementById("add-shortcut").addEventListener("click", function () {
+            const name = document.getElementById("shortcut-name").value;
+            const url = document.getElementById("shortcut-url").value;
+            const logo = document.getElementById("shortcut-logo").value;
+
+            if (name && url && logo) {
+                addShortcut(name, url, logo);
+                clearInputs();
+            } else {
+                alert("Please fill in all fields.");
+            }
+        });
+
+        function addShortcut(name, url, logo) {
+            const container = document.getElementById("shortcuts-container");
+            const shortcutDiv = document.createElement("div");
+            shortcutDiv.classList.add("shortcut");
+
+            shortcutDiv.innerHTML = `
+                <a href="${url}" target="_blank">
+                    <img src="${logo}" alt="${name} logo">
+                    <h3>${name}</h3>
+                </a>
+                <button onclick="removeShortcut(this)">Remove</button>
+            `;
+            
+            container.appendChild(shortcutDiv);
+        }
+
+        function clearInputs() {
+            document.getElementById("shortcut-name").value = '';
+            document.getElementById("shortcut-url").value = '';
+            document.getElementById("shortcut-logo").value = '';
+        }
+
+        function removeShortcut(button) {
+            const shortcutDiv = button.parentElement;
+            shortcutDiv.remove();
+        }
+    </script>
+</body>
+</html>
