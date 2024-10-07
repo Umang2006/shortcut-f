@@ -4,130 +4,203 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shortcut Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #2c2c2c;
-            color: white;
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
-
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #1c1e24;
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+        }
         .container {
-            max-width: 800px;
+            max-width: 700px;
             margin: auto;
             padding: 20px;
-            text-align: center;
+            background-color: #2c2f36;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
-
         h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #00adb5;
+        }
+        .shortcut-form {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
             margin-bottom: 20px;
         }
-
-        .form-container {
-            margin-bottom: 20px;
-        }
-
-        input {
-            padding: 10px;
-            margin: 5px;
-            width: calc(33% - 30px);
-            border: none;
+        .shortcut-form input {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 14px;
+            background-color: #333640;
+            color: #e0e0e0;
+            border: 1px solid #555a63;
             border-radius: 5px;
+            transition: border-color 0.3s ease;
         }
-
-        button {
-            padding: 10px 15px;
-            background-color: #4CAF50;
-            color: white;
+        .shortcut-form input:focus {
+            outline: none;
+            border-color: #00adb5;
+        }
+        .shortcut-form button {
+            padding: 12px 20px;
+            font-size: 14px;
+            background-color: #00adb5;
+            color: #fff;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            transition: background-color 0.3s ease;
         }
-
-        button:hover {
-            background-color: #45a049;
+        .shortcut-form button:hover {
+            background-color: #007f82;
         }
-
-        .shortcuts-container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
+        .shortcuts {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 15px;
         }
-
-        .shortcut {
-            background-color: #3e3e3e;
-            border-radius: 10px;
-            padding: 10px;
-            margin: 10px;
-            width: 150px;
+        .shortcut-item {
+            display: block;
+            padding: 15px;
+            background-color: #333640;
+            border: 2px solid transparent;
+            border-radius: 8px;
             text-align: center;
-            transition: transform 0.2s;
+            text-decoration: none;
+            font-size: 16px;
+            color: #e0e0e0;
+            font-weight: 500;
+            position: relative;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
-
-        .shortcut img {
-            width: 50px;
-            height: 50px;
+        .shortcut-item:hover {
+            background-color: #00adb5;
+            color: #fff;
+            border-color: #007f82;
         }
-
-        .shortcut:hover {
-            transform: scale(1.05);
+        .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            padding: 5px 8px;
+            background-color: #ff6b6b;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            font-size: 12px;
+            cursor: pointer;
+            display: none;
+        }
+        .shortcut-item:hover .remove-btn {
+            display: block;
+        }
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 14px;
+            color: #888888;
+        }
+        footer a {
+            color: #00adb5;
+            text-decoration: none;
+        }
+        footer a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Shortcut Manager</h1>
-        <div class="form-container">
-            <input type="text" id="shortcut-name" placeholder="Shortcut Name" required>
-            <input type="url" id="shortcut-url" placeholder="Shortcut URL" required>
-            <input type="url" id="shortcut-logo" placeholder="Shortcut Logo URL" required>
-            <button id="add-shortcut">Add Shortcut</button>
+        <div class="shortcut-form">
+            <input type="text" id="shortcut-name" placeholder="Enter Shortcut Name">
+            <input type="url" id="shortcut-url" placeholder="Enter Shortcut URL">
+            <button id="add-shortcut-btn">Add Shortcut</button>
         </div>
-        <div class="shortcuts-container" id="shortcuts-container">
-            <!-- Shortcuts will be added here -->
+        <div class="shortcuts" id="shortcuts-container">
+            <!-- Shortcuts will appear here -->
         </div>
     </div>
-    <script>
-        document.getElementById("add-shortcut").addEventListener("click", function () {
-            const name = document.getElementById("shortcut-name").value;
-            const url = document.getElementById("shortcut-url").value;
-            const logo = document.getElementById("shortcut-logo").value;
 
-            if (name && url && logo) {
-                addShortcut(name, url, logo);
-                clearInputs();
+    <footer>
+        Made with ❤️ by <a href="#">Umang Parmar</a>
+    </footer>
+
+    <script>
+        // Load shortcuts from localStorage on page load
+        function loadShortcuts() {
+            const shortcutsContainer = document.getElementById('shortcuts-container');
+            shortcutsContainer.innerHTML = ''; // Clear existing shortcuts
+
+            const shortcuts = JSON.parse(localStorage.getItem('shortcuts')) || [];
+            shortcuts.forEach((shortcut, index) => {
+                const shortcutLink = document.createElement('a');
+                shortcutLink.href = shortcut.url;
+                shortcutLink.target = '_blank';
+                shortcutLink.classList.add('shortcut-item');
+                shortcutLink.innerText = shortcut.name;
+
+                // Remove button
+                const removeBtn = document.createElement('button');
+                removeBtn.classList.add('remove-btn');
+                removeBtn.innerText = 'x';
+                removeBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    removeShortcut(index);
+                });
+
+                // Append remove button to shortcut item
+                shortcutLink.appendChild(removeBtn);
+
+                // Add the shortcut to the container
+                shortcutsContainer.appendChild(shortcutLink);
+            });
+        }
+
+        // Function to add new shortcut
+        document.getElementById('add-shortcut-btn').addEventListener('click', () => {
+            const shortcutName = document.getElementById('shortcut-name').value.trim();
+            const shortcutUrl = document.getElementById('shortcut-url').value.trim();
+
+            if (shortcutName && shortcutUrl) {
+                const shortcuts = JSON.parse(localStorage.getItem('shortcuts')) || [];
+                shortcuts.push({ name: shortcutName, url: shortcutUrl });
+
+                // Save shortcuts back to localStorage
+                localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
+
+                // Clear input fields
+                document.getElementById('shortcut-name').value = '';
+                document.getElementById('shortcut-url').value = '';
+
+                // Reload the shortcut list
+                loadShortcuts();
             } else {
-                alert("Please fill in all fields.");
+                alert('Please enter both a name and a valid URL.');
             }
         });
 
-        function addShortcut(name, url, logo) {
-            const container = document.getElementById("shortcuts-container");
-            const shortcutDiv = document.createElement("div");
-            shortcutDiv.classList.add("shortcut");
-
-            shortcutDiv.innerHTML = `
-                <a href="${url}" target="_blank">
-                    <img src="${logo}" alt="${name} logo">
-                    <h3>${name}</h3>
-                </a>
-                <button onclick="removeShortcut(this)">Remove</button>
-            `;
-            
-            container.appendChild(shortcutDiv);
+        // Function to remove a shortcut
+        function removeShortcut(index) {
+            const shortcuts = JSON.parse(localStorage.getItem('shortcuts')) || [];
+            shortcuts.splice(index, 1); // Remove shortcut at given index
+            localStorage.setItem('shortcuts', JSON.stringify(shortcuts)); // Save updated shortcuts to localStorage
+            loadShortcuts(); // Reload shortcuts
         }
 
-        function clearInputs() {
-            document.getElementById("shortcut-name").value = '';
-            document.getElementById("shortcut-url").value = '';
-            document.getElementById("shortcut-logo").value = '';
-        }
-
-        function removeShortcut(button) {
-            const shortcutDiv = button.parentElement;
-            shortcutDiv.remove();
-        }
+        // Load shortcuts when page loads
+        window.onload = loadShortcuts;
     </script>
 </body>
 </html>
