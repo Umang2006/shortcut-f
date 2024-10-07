@@ -37,6 +37,7 @@
             align-items: center;
             gap: 10px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }
         .shortcut-form input {
             width: 100%;
@@ -47,6 +48,7 @@
             border: 1px solid #555a63;
             border-radius: 5px;
             transition: border-color 0.3s ease;
+            margin-bottom: 10px;
         }
         .shortcut-form input:focus {
             outline: none;
@@ -126,6 +128,7 @@
         <div class="shortcut-form">
             <input type="text" id="shortcut-name" placeholder="Enter Shortcut Name">
             <input type="url" id="shortcut-url" placeholder="Enter Shortcut URL">
+            <input type="text" id="shortcut-description" placeholder="Enter Shortcut Description (Optional)">
             <button id="add-shortcut-btn">Add Shortcut</button>
         </div>
         <div class="shortcuts" id="shortcuts-container">
@@ -154,6 +157,7 @@
                 shortcutLink.target = '_blank';
                 shortcutLink.classList.add('shortcut-item');
                 shortcutLink.innerText = shortcut.name;
+                shortcutLink.title = shortcut.description || 'No description available'; // Tooltip with description
 
                 // Remove button
                 const removeBtn = document.createElement('button');
@@ -176,10 +180,11 @@
         document.getElementById('add-shortcut-btn').addEventListener('click', () => {
             const shortcutName = document.getElementById('shortcut-name').value.trim();
             const shortcutUrl = document.getElementById('shortcut-url').value.trim();
+            const shortcutDescription = document.getElementById('shortcut-description').value.trim(); // Get description
 
             if (shortcutName && shortcutUrl) {
                 const shortcuts = JSON.parse(localStorage.getItem(managerName)) || [];
-                shortcuts.push({ name: shortcutName, url: shortcutUrl });
+                shortcuts.push({ name: shortcutName, url: shortcutUrl, description: shortcutDescription });
 
                 // Save shortcuts back to localStorage
                 localStorage.setItem(managerName, JSON.stringify(shortcuts));
@@ -187,6 +192,7 @@
                 // Clear input fields
                 document.getElementById('shortcut-name').value = '';
                 document.getElementById('shortcut-url').value = '';
+                document.getElementById('shortcut-description').value = ''; // Clear description field
 
                 // Reload the shortcut list
                 loadShortcuts();
