@@ -1,65 +1,210 @@
-<script>
-    // Function to get URL parameters
-    function getUrlParams() {
-        const params = new URLSearchParams(window.location.search);
-        return params.get('manager') || 'default'; // Default manager if none is specified
-    }
-
-    // Modify loadShortcuts to use a manager name
-    function loadShortcuts() {
-        const managerName = getUrlParams();
-        const shortcutsContainer = document.getElementById('shortcuts-container');
-        shortcutsContainer.innerHTML = ''; // Clear existing shortcuts
-
-        const shortcuts = JSON.parse(localStorage.getItem(`shortcuts_${managerName}`)) || [];
-        shortcuts.forEach((shortcut, index) => {
-            const shortcutLink = document.createElement('a');
-            shortcutLink.href = shortcut.url;
-            shortcutLink.target = '_blank';
-            shortcutLink.classList.add('shortcut-item');
-            shortcutLink.innerText = shortcut.name;
-
-            // Remove button
-            const removeBtn = document.createElement('button');
-            removeBtn.classList.add('remove-btn');
-            removeBtn.innerText = 'x';
-            removeBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                removeShortcut(index, managerName);
-            });
-
-            // Append remove button to shortcut item
-            shortcutLink.appendChild(removeBtn);
-            shortcutsContainer.appendChild(shortcutLink);
-        });
-    }
-
-    // Function to add new shortcut
-    document.getElementById('add-shortcut-btn').addEventListener('click', () => {
-        const shortcutName = document.getElementById('shortcut-name').value.trim();
-        const shortcutUrl = document.getElementById('shortcut-url').value.trim();
-        const managerName = getUrlParams(); // Get manager name
-
-        if (shortcutName && shortcutUrl) {
-            const shortcuts = JSON.parse(localStorage.getItem(`shortcuts_${managerName}`)) || [];
-            shortcuts.push({ name: shortcutName, url: shortcutUrl });
-            localStorage.setItem(`shortcuts_${managerName}`, JSON.stringify(shortcuts));
-            document.getElementById('shortcut-name').value = '';
-            document.getElementById('shortcut-url').value = '';
-            loadShortcuts();
-        } else {
-            alert('Please enter both a name and a valid URL.');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shortcut Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
-    });
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #1c1e24;
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px;
+            margin: auto;
+            padding: 20px;
+            background-color: #2c2f36;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #00adb5;
+        }
+        .shortcut-form {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .shortcut-form input {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 14px;
+            background-color: #333640;
+            color: #e0e0e0;
+            border: 1px solid #555a63;
+            border-radius: 5px;
+            transition: border-color 0.3s ease;
+        }
+        .shortcut-form input:focus {
+            outline: none;
+            border-color: #00adb5;
+        }
+        .shortcut-form button {
+            padding: 12px 20px;
+            font-size: 14px;
+            background-color: #00adb5;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .shortcut-form button:hover {
+            background-color: #007f82;
+        }
+        .shortcuts {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 15px;
+        }
+        .shortcut-item {
+            display: block;
+            padding: 15px;
+            background-color: #333640;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            text-align: center;
+            text-decoration: none;
+            font-size: 16px;
+            color: #e0e0e0;
+            font-weight: 500;
+            position: relative;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+        .shortcut-item:hover {
+            background-color: #00adb5;
+            color: #fff;
+            border-color: #007f82;
+        }
+        .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            padding: 5px 8px;
+            background-color: #ff6b6b;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            font-size: 12px;
+            cursor: pointer;
+            display: none;
+        }
+        .shortcut-item:hover .remove-btn {
+            display: block;
+        }
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 14px;
+            color: #888888;
+        }
+        footer a {
+            color: #00adb5;
+            text-decoration: none;
+        }
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="manager-title">Shortcut Manager</h1>
+        <div class="shortcut-form">
+            <input type="text" id="shortcut-name" placeholder="Enter Shortcut Name">
+            <input type="url" id="shortcut-url" placeholder="Enter Shortcut URL">
+            <button id="add-shortcut-btn">Add Shortcut</button>
+        </div>
+        <div class="shortcuts" id="shortcuts-container">
+            <!-- Shortcuts will appear here -->
+        </div>
+    </div>
 
-    // Function to remove a shortcut
-    function removeShortcut(index, managerName) {
-        const shortcuts = JSON.parse(localStorage.getItem(`shortcuts_${managerName}`)) || [];
-        shortcuts.splice(index, 1); // Remove shortcut at given index
-        localStorage.setItem(`shortcuts_${managerName}`, JSON.stringify(shortcuts)); // Save updated shortcuts to localStorage
-        loadShortcuts(); // Reload shortcuts
-    }
+    <footer>
+        Made with ❤️ by <a href="#">Umang Parmar</a>
+    </footer>
 
-    // Load shortcuts when page loads
-    window.onload = loadShortcuts;
-</script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const managerName = urlParams.get('manager') || 'Default Manager';
+        document.getElementById('manager-title').innerText = `${managerName} Shortcut Manager`;
+
+        // Load shortcuts from localStorage on page load
+        function loadShortcuts() {
+            const shortcutsContainer = document.getElementById('shortcuts-container');
+            shortcutsContainer.innerHTML = ''; // Clear existing shortcuts
+
+            const shortcuts = JSON.parse(localStorage.getItem(managerName)) || [];
+            shortcuts.forEach((shortcut, index) => {
+                const shortcutLink = document.createElement('a');
+                shortcutLink.href = shortcut.url;
+                shortcutLink.target = '_blank';
+                shortcutLink.classList.add('shortcut-item');
+                shortcutLink.innerText = shortcut.name;
+
+                // Remove button
+                const removeBtn = document.createElement('button');
+                removeBtn.classList.add('remove-btn');
+                removeBtn.innerText = 'x';
+                removeBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    removeShortcut(index);
+                });
+
+                // Append remove button to shortcut item
+                shortcutLink.appendChild(removeBtn);
+
+                // Add the shortcut to the container
+                shortcutsContainer.appendChild(shortcutLink);
+            });
+        }
+
+        // Function to add new shortcut
+        document.getElementById('add-shortcut-btn').addEventListener('click', () => {
+            const shortcutName = document.getElementById('shortcut-name').value.trim();
+            const shortcutUrl = document.getElementById('shortcut-url').value.trim();
+
+            if (shortcutName && shortcutUrl) {
+                const shortcuts = JSON.parse(localStorage.getItem(managerName)) || [];
+                shortcuts.push({ name: shortcutName, url: shortcutUrl });
+
+                // Save shortcuts back to localStorage
+                localStorage.setItem(managerName, JSON.stringify(shortcuts));
+
+                // Clear input fields
+                document.getElementById('shortcut-name').value = '';
+                document.getElementById('shortcut-url').value = '';
+
+                // Reload the shortcut list
+                loadShortcuts();
+            } else {
+                alert('Please enter both a name and a valid URL.');
+            }
+        });
+
+        // Function to remove a shortcut
+        function removeShortcut(index) {
+            const shortcuts = JSON.parse(localStorage.getItem(managerName)) || [];
+            shortcuts.splice(index, 1); // Remove shortcut at given index
+            localStorage.setItem(managerName, JSON.stringify(shortcuts)); // Save updated shortcuts to localStorage
+            loadShortcuts(); // Reload shortcuts
+        }
+
+        // Load shortcuts when page loads
+        window.onload = loadShortcuts;
+    </script>
+</body>
+</html>
