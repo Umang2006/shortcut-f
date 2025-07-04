@@ -1,0 +1,518 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, BookOpen, Edit3, X, Filter, Download } from 'lucide-react';
+
+const YouTubePlaylistTracker = () => {
+  const [playlists, setPlaylists] = useState([]);
+  const [activePlaylist, setActivePlaylist] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [currentVideo, setCurrentVideo] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showReviewOnly, setShowReviewOnly] = useState(false);
+  const [newPlaylist, setNewPlaylist] = useState({ name: '', videos: '' });
+  const [videoNote, setVideoNote] = useState('');
+
+  // Load data from localStorage on component mount
+  useEffect(() => {
+    const savedPlaylists = localStorage.getItem('youtube_playlists');
+    if (savedPlaylists) {
+      const parsed = JSON.parse(savedPlaylists);
+      setPlaylists(parsed);
+      if (parsed.length > 0) {
+        setActivePlaylist(parsed[0]);
+      }
+    }
+  }, []);
+
+  // Save to localStorage whenever playlists change
+  useEffect(() => {
+    if (playlists.length > 0) {
+      localStorage.setItem('youtube_playlists', JSON.stringify(playlists));
+    }
+  }, [playlists]);
+
+  // Parse video list from CSV format
+  const parseVideoList = (videoText) => {
+    const lines = videoText.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+    return lines.map((line, index) => {
+      // Parse CSV format: "1","https://youtube.com/watch?v=...","Title","Duration"
+      const csvMatch = line.match(/^"(\d+)","([^"]+)","([^"]+)","([^"]*)"$/);
+      if (csvMatch) {
+        return {
+          id: `video_${Date.now()}_${index}`,
+          number: parseInt(csvMatch[1]),
+          url: csvMatch[2],
+          title: csvMatch[3],
+          duration: csvMatch[4],
+          reviewRequired: false,
+          notes: '',
+          reviewDate: null
+        };
+      }
+      
+      // Fallback to old format for backward compatibility
+      const oldMatch = line.match(/^\d+\.\s*(.+?)\s+(\d+m\s+\d+s|\d+:\d+|\d+m|\d+s)?\s*$/);
+      if (oldMatch) {
+        return {
+          id: `video_${Date.now()}_${index}`,
+          number: index + 1,
+          url: null,
+          title: oldMatch[1].trim(),
+          duration: oldMatch[2] || '',
+          reviewRequired: false,
+          notes: '',
+          reviewDate: null
+        };
+      }
+      
+      return {
+        id: `video_${Date.now()}_${index}`,
+        number: index + 1,
+        url: null,
+        title: line.trim(),
+        duration: '',
+        reviewRequired: false,
+        notes: '',
+        reviewDate: null
+      };
+    });
+  };
+
+  // Add new playlist
+  const handleAddPlaylist = () => {
+    if (!newPlaylist.name.trim() || !newPlaylist.videos.trim()) return;
+
+    const videos = parseVideoList(newPlaylist.videos);
+    const playlist = {
+      id: `playlist_${Date.now()}`,
+      name: newPlaylist.name.trim(),
+      videos: videos,
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedPlaylists = [...playlists, playlist];
+    setPlaylists(updatedPlaylists);
+    setActivePlaylist(playlist);
+    setNewPlaylist({ name: '', videos: '' });
+    setShowAddModal(false);
+  };
+
+  // Toggle review status
+  const toggleReviewStatus = (videoId) => {
+    if (!activePlaylist) return;
+
+    const updatedPlaylists = playlists.map(playlist => {
+      if (playlist.id === activePlaylist.id) {
+        return {
+          ...playlist,
+          videos: playlist.videos.map(video => 
+            video.id === videoId 
+              ? { ...video, reviewRequired: !video.reviewRequired }
+              : video
+          )
+        };
+      }
+      return playlist;
+    });
+
+    setPlaylists(updatedPlaylists);
+    setActivePlaylist(updatedPlaylists.find(p => p.id === activePlaylist.id));
+  };
+
+  // Open note modal
+  const openNoteModal = (video) => {
+    setCurrentVideo(video);
+    setVideoNote(video.notes);
+    setShowNoteModal(true);
+  };
+
+  // Save note
+  const saveNote = () => {
+    if (!currentVideo || !activePlaylist) return;
+
+    const updatedPlaylists = playlists.map(playlist => {
+      if (playlist.id === activePlaylist.id) {
+        return {
+          ...playlist,
+          videos: playlist.videos.map(video => 
+            video.id === currentVideo.id 
+              ? { ...video, notes: videoNote }
+              : video
+          )
+        };
+      }
+      return playlist;
+    });
+
+    setPlaylists(updatedPlaylists);
+    setActivePlaylist(updatedPlaylists.find(p => p.id === activePlaylist.id));
+    setShowNoteModal(false);
+    setVideoNote('');
+    setCurrentVideo(null);
+  };
+
+  // Export playlist as TXT file
+  const exportPlaylist = () => {
+    if (!activePlaylist) return;
+    
+    let content = `# ${activePlaylist.name}\n\n`;
+    content += `Total Videos: ${activePlaylist.videos.length}\n`;
+    content += `Videos for Review: ${activePlaylist.videos.filter(v => v.reviewRequired).length}\n\n`;
+    content += `--- Video List ---\n\n`;
+    
+    activePlaylist.videos.forEach(video => {
+      content += `${video.number}. ${video.title}\n`;
+      if (video.url) {
+        content += `   URL: ${video.url}\n`;
+      }
+      if (video.duration) {
+        content += `   Duration: ${video.duration}\n`;
+      }
+      if (video.reviewRequired) {
+        content += `   ⭐ MARKED FOR REVIEW\n`;
+      }
+      if (video.notes) {
+        content += `   Notes: ${video.notes}\n`;
+      }
+      content += '\n';
+    });
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activePlaylist.name.replace(/[^a-z0-9]/gi, '_')}_playlist.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Filter videos
+  const getFilteredVideos = () => {
+    if (!activePlaylist) return [];
+
+    let videos = activePlaylist.videos;
+
+    if (searchTerm) {
+      videos = videos.filter(video => 
+        video.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        video.notes.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (showReviewOnly) {
+      videos = videos.filter(video => video.reviewRequired);
+    }
+
+    return videos;
+  };
+
+  // Delete playlist
+  const deletePlaylist = (playlistId) => {
+    const updatedPlaylists = playlists.filter(p => p.id !== playlistId);
+    setPlaylists(updatedPlaylists);
+    
+    if (activePlaylist && activePlaylist.id === playlistId) {
+      setActivePlaylist(updatedPlaylists.length > 0 ? updatedPlaylists[0] : null);
+    }
+  };
+
+  const filteredVideos = getFilteredVideos();
+  const reviewCount = activePlaylist ? activePlaylist.videos.filter(v => v.reviewRequired).length : 0;
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center space-x-3">
+            <BookOpen className="w-8 h-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900">YouTube Playlist Tracker</h1>
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Add Playlist</span>
+          </button>
+        </div>
+
+        {/* Playlist Tabs */}
+        {playlists.length > 0 && (
+          <div className="flex space-x-2 mb-6 overflow-x-auto pb-2">
+            {playlists.map(playlist => (
+              <div key={playlist.id} className="flex items-center">
+                <button
+                  onClick={() => setActivePlaylist(playlist)}
+                  className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    activePlaylist?.id === playlist.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {playlist.name}
+                  <span className="ml-2 text-sm opacity-75">
+                    ({playlist.videos.filter(v => v.reviewRequired).length})
+                  </span>
+                </button>
+                <button
+                  onClick={() => deletePlaylist(playlist.id)}
+                  className="ml-1 p-1 text-red-500 hover:bg-red-50 rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Search and Filter Bar */}
+        {activePlaylist && (
+          <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4 items-center">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search videos or notes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setShowReviewOnly(!showReviewOnly)}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    showReviewOnly
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <Filter className="w-4 h-4" />
+                  <span>Review Only</span>
+                </button>
+                <button
+                  onClick={exportPlaylist}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export TXT</span>
+                </button>
+                <div className="text-sm text-gray-600">
+                  {reviewCount} videos marked for review
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Video List */}
+        {activePlaylist ? (
+          <div className="bg-white rounded-lg shadow-sm">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">{activePlaylist.name}</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                {filteredVideos.length} videos {searchTerm || showReviewOnly ? '(filtered)' : ''}
+              </p>
+            </div>
+            <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+              {filteredVideos.map(video => (
+                <div
+                  key={video.id}
+                  className={`p-4 hover:bg-gray-50 transition-colors ${
+                    video.reviewRequired ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''
+                  }`}
+                >
+                  <div className="flex items-center space-x-4">
+                    <input
+                      type="checkbox"
+                      checked={video.reviewRequired}
+                      onChange={() => toggleReviewStatus(video.id)}
+                      className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <div className="flex-shrink-0 w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-gray-700">{video.number}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        {video.url ? (
+                          <a
+                            href={video.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 truncate underline"
+                            title={video.title}
+                          >
+                            {video.title}
+                          </a>
+                        ) : (
+                          <h3 
+                            className="text-sm font-medium text-gray-900 truncate"
+                            title={video.title}
+                          >
+                            {video.title}
+                          </h3>
+                        )}
+                        {video.duration && (
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            {video.duration}
+                          </span>
+                        )}
+                      </div>
+                      {video.notes && (
+                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                          {video.notes}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => openNoteModal(video)}
+                      className={`p-2 rounded-lg transition-colors ${
+                        video.notes 
+                          ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No playlists yet</h3>
+            <p className="text-gray-600 mb-4">Get started by adding your first YouTube playlist</p>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Add Your First Playlist
+            </button>
+          </div>
+        )}
+
+        {/* Add Playlist Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">Add New Playlist</h2>
+                  <button
+                    onClick={() => setShowAddModal(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Playlist Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newPlaylist.name}
+                      onChange={(e) => setNewPlaylist({...newPlaylist, name: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter playlist name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Video List (CSV Format)
+                    </label>
+                    <textarea
+                      value={newPlaylist.videos}
+                      onChange={(e) => setNewPlaylist({...newPlaylist, videos: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      rows={10}
+                      placeholder={`Paste your CSV video list here:
+#,URL,Title,Duration
+"1","https://www.youtube.com/watch?v=L9X7XXfHYdU","L-1.1: Computer Organization and Architecture Syllabus Discussion for GATE and UGC NTA NET","13m 40s"
+"2","https://www.youtube.com/watch?v=j8NnE1YeSN0","L-1.2: Von Neumann's Architecture | Stored Memory Concept in Computer Architecture","9m 40s"`}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    onClick={() => setShowAddModal(false)}
+                    className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddPlaylist}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Add Playlist
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Note Modal */}
+        {showNoteModal && currentVideo && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">Video Notes</h2>
+                  <button
+                    onClick={() => setShowNoteModal(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="mb-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">
+                    {currentVideo.title}
+                  </h3>
+                </div>
+                <div className="space-y-4">
+                  <textarea
+                    value={videoNote}
+                    onChange={(e) => setVideoNote(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={6}
+                    placeholder="Add your notes, timestamps, key concepts, or anything you want to remember..."
+                  />
+                </div>
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    onClick={() => setShowNoteModal(false)}
+                    className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveNote}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Save Note
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default YouTubePlaylistTracker;
+
+
+
+
+
